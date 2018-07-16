@@ -253,13 +253,6 @@
   }
 
   function drawPaddle(){
-    if (rightPressed && paddlex < canvas.width-paddleWidth){
-      paddlex += paddleSpeed;
-    }
-    else if (leftPressed && paddlex > 0){
-      paddlex -= paddleSpeed;
-    }
-
     ctx.beginPath();
     ctx.rect(paddlex, canvas.height-paddleHeight-5, paddleWidth, paddleHeight);
     ctx.fillStyle = paddleColor;
