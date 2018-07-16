@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Gamedev Canvas Workshop</title>
+    <style>
+      body {
+        height: 100%;
+        background: linear-gradient(white, lightcoral);
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+      }
+      #menu {
+        text-align: center;
+        padding: 10px;
+      }
+
+      #menu button {
+        background-color: lightcoral;
+        border: 1px solid white;
+        padding: 10px;
+        color: white;
+      }
+
+      #menu button:hover {
+      color: lightcoral;
+      background-color: white;
+        cursor: pointer;
+      }
+    	canvas {
+        background: #eee;
+        display: block;
+        margin: 30px auto;
+      }
+
+      canvas:hover {
+        cursor: none;
+      }
+    </style>
+</head>
+<body>
+
+<canvas id="myCanvas" width="800" height="700"></canvas>
+<div id="menu">
+  <button onclick="setup()">New Game</button>
+</div>
+<script>
+	let canvas = document.getElementById("myCanvas");
+  let ctx = canvas.getContext("2d");
+  let score = 0;
+  let gameOver = false;
+  let lives = 3;
+  let speed = 5;
+  let activePowerups = [];
+  let activePowerupName = '';
+  let ballColor = "maroon";
+
+  let x = canvas.width/2;
+  let y = canvas.height-30;
+  let dx = speed;
+  let dy = -dx;
+
+  let ballRadius = 10;
+  let paddleHeight = 10;
+  let paddleWidth = 110;
+  let paddlex = (canvas.width-paddleWidth)/2;
+  let paddleSpeed = 7;
+  let paddleColor = "maroon";
+
+  let mainBall = {
+    name: "main",
+    x: x,
+    y: y,
+    dx: dx,
+    dy: dy
+  };
+
+  let balls = [mainBall];
+
+  let rightPressed = false;
+  let leftPressed = false;
+
+  document.addEventListener("keydown", keyPressHandler, false);
+  document.addEventListener("keyup", keyPressHandler, false);
+  document.addEventListener("mousemove", mouseMoveHandler, false);
+
+  //Bricks
+  let brickRowCount = 7;
+  let brickColumnCount = 9;
+  let brickWidth = 75;
+  let brickHeight = 20;
+  let brickPadding = 10;
+  let brickOffset = 30;
+
+  let bricks = [];
+
+  let powerups = [
+    {
+      name: "Speedy Ball",
+      timeout: 10,
+      init: () => {
+        ballColor = "lightgreen";
+        mainBall.dx *= 1.5;
+        mainBall.dy *= 1.5;
+      },
+      callback: () => {
+        ballColor = "maroon";
+        mainBall.dx /= 1.5;
+        mainBall.dy /= 1.5;
+      }
+    },
+    {
+      name: "Explosion",
+      timeout: 5,
+      init: () => {
+        ballColor = "red";
+        collisionBonus = (options) => {
+          let col = options.col;
+          let row = options.row;
+          if (col + 1 < brickColumnCount){
+            bricks[col+1][row].status = 0;
+            score++;
+          }
+          if (col - 1 > 0){
+            bricks[col-1][row].status = 0;
+            score++;
+          }
+        }
+      },
+      callback: () => {
+        ballColor = "maroon";
+        collisionBonus = (options)=>{};
+      }
+    },
+    {
+      name: "Multi Ball",
+      timeout: 20,
+      init: () => {
+        for (let i=0; i<3; i++){
+          balls.push({
+            radius: ballRadius,
+            x: canvas.width/2,
+            y: canvas.height-30,
+            dx: speed+Math.round(Math.random()*3),
+            dy: -dx
+          })
+        }
+      },
+      callback: () => {
+        paddleColor = "maroon";
+        balls = [mainBall];
+      }
+    },
+    {
+      name: "Big Ball",
+      timeout: 10,
+      init: () => {
+        ballRadius *= 2;
+      },
+      callback: () => {
+        ballRadius /= 2;
+      }
+    },
+    {
+      name: "Big Paddle",
+      timeout: 10,
+      init: () => {
+        if (paddleWidth < 220){
+          paddleWidth *= 2;
+        }
+      },
+      callback: () => {
+        if (paddleWidth > 110){
+          paddleWidth /= 2;
+        }
+      }
+    }
+  ]
+
+  ctx.font = "36px Arial";
+  ctx.fillStyle = "lightcoral";
+  ctx.fillText("Brick Breaker", 280, 200);
+
+  function setup(){
+    score = 0;
+    gameOver = false;
+    lives = 3;
+    mainBall.dx = speed;
+    mainBall.dy = -mainBall.dx
+    paddleSpeed = 7;
+    bricks = [];
+    mainBall.x = canvas.width/2;
+    mainBall.y = canvas.height-30;
+    for (let c=0; c<brickColumnCount; c++){
+      bricks[c] = [];
+      for (let r=0; r<brickRowCount; r++){
+        if (Math.round(Math.random()*10) === 1){ //Random powerup
+         bricks[c][r] = {x: 0, y: 0, status: 1, powerup: powerups[Math.round(Math.random()*powerups.length)]};
+        }
+        else {
+          bricks[c][r] = {x: 0, y: 0, status: 1, powerup: null};
+        }
+      }
+    }
+    draw();
+  }
+
+  function draw(){
+    if (!gameOver){
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBalls();
+      drawPaddle();
+      drawBricks();
+      collisionDetection();
+      drawScore();
+      drawPowerupName(activePowerupName);
+      for (let ball of balls){
+        if(ball.x + ball.dx > canvas.width-ballRadius || ball.x + ball.dx < ballRadius) {
+          ball.dx = -ball.dx;
+        }
+        if(ball.y + ball.dy < ballRadius) {
+          ball.dy = -ball.dy;
+        }
+        else if(ball.y + ball.dy > canvas.height-ballRadius) {
+          if(ball.x > paddlex && ball.x < paddlex + paddleWidth - 5) {
+            ball.dy = -ball.dy;
+          }
+          else {
+            if (ball.name){
+              lives--;
+              if(!lives){
+                alert("Game Over");
+                gameOver = true;
+              }
+              else {
+                reset();
+              }
+            }
+          }
+        }
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  function mouseMoveHandler(e) {
+    let relativeX = e.clientX - canvas.offsetLeft;
+    if(relativeX > 0 && relativeX < canvas.width) {
+      paddlex = relativeX - paddleWidth/2;
+    }
+  }
+
+  function drawPaddle(){
+    if (rightPressed && paddlex < canvas.width-paddleWidth){
+      paddlex += paddleSpeed;
+    }
+    else if (leftPressed && paddlex > 0){
+      paddlex -= paddleSpeed;
+    }
+
+    ctx.beginPath();
+    ctx.rect(paddlex, canvas.height-paddleHeight-5, paddleWidth, paddleHeight);
+    ctx.fillStyle = paddleColor;
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  function drawBalls() {
+    for (let ball of balls){
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI*2);
+      if (ball.name){
+        ctx.fillStyle = ballColor;
+      }
+      else {
+        ctx.fillStyle = "lightred";
+      }
+      ctx.fill();
+      ctx.closePath();
+    }
+  }
+
+  function keyPressHandler(e){
+    //Right key
+    if (e.keyCode==39){
+        rightPressed = !rightPressed;
+    }
+    //Left key
+    else if (e.keyCode == 37){
+      leftPressed = !leftPressed;
+    }
+  }
+
+  function drawBricks(){
+    for (let c=0; c<brickColumnCount; c++){
+      for (let r=0; r<brickRowCount; r++){
+        if (bricks[c][r].status == 1){
+          let brickX = (c*(brickWidth+brickPadding))+brickOffset;
+          let brickY = (r*(brickHeight+brickPadding))+brickOffset;
+          bricks[c][r].x = brickX;
+          bricks[c][r].y = brickY;
+          ctx.beginPath();
+          ctx.rect(brickX, brickY, brickWidth, brickHeight);
+          ctx.fillStyle = "maroon";
+          ctx.fill();
+          ctx.closePath;
+        }
+      }
+    }
+  }
+
+  function collisionDetection(){
+    for(let c=0; c<brickColumnCount; c++) {
+      for(let r=0; r<brickRowCount; r++) {
+        let brick = bricks[c][r];
+        if (brick.status == 1){
+          for (let ball of balls){
+            if (ball.x > brick.x && ball.x < brick.x+brickWidth && ball.y > brick.y && ball.y < brick.y+brickHeight){
+              brick.status = 0;
+              let options = {row: r, col: c};
+              collisionBonus(options);
+              ball.dy = -ball.dy;
+              score++;
+              if (score == brickRowCount*brickColumnCount){
+                alert("You win! Congratulations!")
+                gameOver = true;
+              }
+              if (brick.powerup){
+                brick.powerup.init(options);
+                activePowerups.push(setTimeout(brick.powerup.callback, 1000*brick.powerup.timeout));
+                activePowerupName = brick.powerup.name;
+                drawPowerupName = (name) => {
+                  ctx.font = "32px Arial";
+                  ctx.fillStyle = "#0095DD";
+                  ctx.fillText(activePowerupName, canvas.width/2-100, canvas.height/2);
+                }
+                setTimeout(()=>{
+                  drawPowerupName = (name) => {};
+                }, 1000*3);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  function drawScore() {
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "#0095DD";
+      ctx.fillText("Score: "+score, 8, 20);
+      ctx.fillText("Lives: "+lives, canvas.width-100, 20);
+  }
+
+  let drawPowerupName = (name) => {};
+  let collisionBonus = () => {};
+
+  function reset(){
+    balls = [mainBall]
+    mainBall.x = canvas.width/2;
+    mainBall.y = canvas.height-30;
+    mainBall.dx = speed;
+    mainBall.dy = -dx;
+    ballColor = 'maroon';
+    paddleX = (canvas.width-paddleWidth)/2;
+    for (let powerup of activePowerups){
+      clearTimeout(powerup);
+    }
+    drawPowerupName = (name) => {};
+  }
+
+</script>
+
+</body>
+</html>
