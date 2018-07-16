@@ -77,11 +77,7 @@
 
   let balls = [mainBall];
 
-  let rightPressed = false;
-  let leftPressed = false;
-
-  document.addEventListener("keydown", keyPressHandler, false);
-  document.addEventListener("keyup", keyPressHandler, false);
+  //Paddle is controlled by the mouse
   document.addEventListener("mousemove", mouseMoveHandler, false);
 
   //Bricks
@@ -94,6 +90,7 @@
 
   let bricks = [];
 
+  //Powerups. Each has a name, a timeout, an init function which is called immediately and a callback which is called after time timeout period
   let powerups = [
     {
       name: "Speedy Ball",
@@ -181,6 +178,7 @@
   ctx.fillStyle = "lightcoral";
   ctx.fillText("Brick Breaker", 280, 200);
 
+  //Reset everything so that we can renew the game by clicking the button
   function setup(){
     score = 0;
     gameOver = false;
@@ -191,6 +189,7 @@
     bricks = [];
     mainBall.x = canvas.width/2;
     mainBall.y = canvas.height-30;
+    //Create the bricks
     for (let c=0; c<brickColumnCount; c++){
       bricks[c] = [];
       for (let r=0; r<brickRowCount; r++){
@@ -214,6 +213,7 @@
       collisionDetection();
       drawScore();
       drawPowerupName(activePowerupName);
+      //Move each of the balls
       for (let ball of balls){
         if(ball.x + ball.dx > canvas.width-ballRadius || ball.x + ball.dx < ballRadius) {
           ball.dx = -ball.dx;
@@ -242,7 +242,7 @@
         ball.y += ball.dy;
       }
     }
-    requestAnimationFrame(draw);
+    requestAnimationFrame(draw); //Continue to redraw
   }
 
   function mouseMoveHandler(e) {
@@ -282,17 +282,7 @@
     }
   }
 
-  function keyPressHandler(e){
-    //Right key
-    if (e.keyCode==39){
-        rightPressed = !rightPressed;
-    }
-    //Left key
-    else if (e.keyCode == 37){
-      leftPressed = !leftPressed;
-    }
-  }
-
+  //Redraw the bricks that are not broken
   function drawBricks(){
     for (let c=0; c<brickColumnCount; c++){
       for (let r=0; r<brickRowCount; r++){
@@ -311,6 +301,7 @@
     }
   }
 
+  //Detect if any balls have made contact with a brick
   function collisionDetection(){
     for(let c=0; c<brickColumnCount; c++) {
       for(let r=0; r<brickRowCount; r++) {
@@ -320,7 +311,7 @@
             if (ball.x > brick.x && ball.x < brick.x+brickWidth && ball.y > brick.y && ball.y < brick.y+brickHeight){
               brick.status = 0;
               let options = {row: r, col: c};
-              collisionBonus(options);
+              collisionBonus(options); //A powerup function that runs when a collision happens
               ball.dy = -ball.dy;
               score++;
               if (score == brickRowCount*brickColumnCount){
@@ -328,9 +319,9 @@
                 gameOver = true;
               }
               if (brick.powerup){
-                brick.powerup.init(options);
+                brick.powerup.init(options); //Run the powerup
                 activePowerups.push(setTimeout(brick.powerup.callback, 1000*brick.powerup.timeout));
-                activePowerupName = brick.powerup.name;
+                activePowerupName = brick.powerup.name; //Draw the powerup name on the canvas
                 drawPowerupName = (name) => {
                   ctx.font = "32px Arial";
                   ctx.fillStyle = "#0095DD";
@@ -338,7 +329,7 @@
                 }
                 setTimeout(()=>{
                   drawPowerupName = (name) => {};
-                }, 1000*3);
+                }, 1000*3); //Only draw powerup name for 3 seconds
               }
             }
           }
